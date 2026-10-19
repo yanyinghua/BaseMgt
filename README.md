@@ -468,5 +468,7 @@ PR 创建方式（本机 `gh` 的 token 已失效，任选其一）：
 - 网页：<https://github.com/yanyinghua/BaseMgt/compare/develop> 选 compare 分支后点 Create pull request
 - 命令行：先 `gh auth refresh -h github.com`，再 `gh pr create --base develop --fill`
 
+多分支并行时的**合并顺序、冲突点与解决办法**见 [`docs/PR_MERGE_ORDER.md`](docs/PR_MERGE_ORDER.md)。
+
 分支保护建议在 GitHub → Settings → Branches 里给 `main` 加上「需经 PR 合入」，
 `develop` 可按需设置（当前凭据下无法用 API 代劳）。
