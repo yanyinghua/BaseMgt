@@ -303,6 +303,9 @@ curl http://127.0.0.1:8000/api/mdm/entities/2/changes/?record_id=9
 （例如 `category=“不存在的类别” 不在可选值内（可选：原材料/设备/办公/服务/其他）`），
 避免出现主数据里的脏枚举值。
 
+**关联字段同样校验**：导入前一次性预加载目标主数据的主键集合，指向不存在（或已删除）记录的
+行不入库并报出（例如 `dept_id=999999 在「部门信息」中不存在`）。
+
 ```bash
 curl -o tpl.xlsx "http://127.0.0.1:8000/api/mdm/entities/3/template/"        # 下载模板
 curl -o out.xlsx "http://127.0.0.1:8000/api/mdm/entities/3/export/?keyword=S10"  # 导出
