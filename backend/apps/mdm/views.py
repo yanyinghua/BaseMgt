@@ -298,12 +298,67 @@ class EntityDefinitionViewSet(PermModelViewSet):
                 mapping[index] = field
 
         fields = editable_fields(entity)
+        # 枚举/字典字段的合法值，用于导入时校验（空值不校验，交由默认值处理）
+        enum_allowed = {}
+        for field in entity.fields_sorted():
+            if field.data_type != "enum":
+                continue
+            options = [o["value"] for o in generators.enum_options(field)]
+            if options:
+                enum_allowed[field.name] = options
+
+        # 关联字段的合法主键，一次性预加载（按目标主数据的表取 id，未删除的）
+        ref_allowed = {}
+        for field in entity.fields_sorted():
+            if field.data_type != "ref" or not field.ref_entity_id:
+                continue
+            ref = field.ref_entity
+            where = " WHERE is_deleted = false" if has_field(ref, "is_deleted") else ""
+            try:
+                ids = services.query(
+                    ref.data_source,
+                    f'SELECT id FROM {ref.schema}."{ref.table_name}"{where}',
+                    fetch="column",
+                )
+            except Exception:  # noqa: BLE001  目标表还没建，跳过校验
+                continue
+            ref_allowed[field.name] = {"ids": set(ids or []), "label": ref.name}
+
         result = {"total": 0, "success": 0, "failed": []}
         for row_index, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             if row is None or all(v in (None, "") for v in row):
                 continue
             result["total"] += 1
             values = {field.name: row[index] for index, field in mapping.items() if index < len(row)}
+
+            # 枚举/字典校验：非法值不入库，作为失败行报出
+            errors = []
+            for name, allowed in enum_allowed.items():
+                value = values.get(name)
+                if value in (None, ""):
+                    continue
+                if not any(str(a) == str(value) for a in allowed):
+                    errors.append(
+                        f"{name}=“{value}” 不在可选值内（可选：{'/'.join(str(a) for a in allowed)}）"
+                    )
+            # 关联字段校验：必须指向目标主数据里真实存在且未删除的记录
+            for name, meta in ref_allowed.items():
+                value = values.get(name)
+                if value in (None, ""):
+                    continue
+                try:
+                    ref_id = int(value)
+                except (TypeError, ValueError):
+                    errors.append(f"{name}=“{value}” 不是合法ID（应为「{meta['label']}」的 id）")
+                    continue
+                if ref_id not in meta["ids"]:
+                    errors.append(f"{name}={ref_id} 在「{meta['label']}」中不存在")
+
+            if errors:
+                result["failed"].append({
+                    "row": row_index, "error": "；".join(errors), "code": values.get("code", "")
+                })
+                continue
             p_id = values.get("id") or None
             # 没有 id 时按编码定位已有记录，实现"按编码更新"，避免撞唯一约束
             if not p_id and values.get("code") and has_field(entity, "code"):

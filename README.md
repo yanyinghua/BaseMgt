@@ -227,6 +227,7 @@ cd backend
 python manage.py shell -c "exec(open('scripts/engine_selftest.py').read())"   # 循环/分支/人工任务/子流程
 python manage.py shell -c "exec(open('scripts/iam_selftest.py').read())"      # 授权/继承/过滤/行级/鉴权
 python manage.py shell -c "exec(open('scripts/async_selftest.py').read())"    # 入队/取消/超时/接口
+python manage.py shell -c "exec(open('scripts/mdm_import_selftest.py').read())"  # Excel 导入：枚举校验 + 按编码 upsert
 ```
 
 ## 十二、企业主数据（MDM）
@@ -298,6 +299,13 @@ curl http://127.0.0.1:8000/api/mdm/entities/2/changes/?record_id=9
 **Excel 导入导出**：表头支持中文名或列名；导入按 **编码** 定位已有记录（有则更新、无则新增），
 逐行调用保存存储过程并返回成功/失败明细。
 
+导入时会**按字典校验枚举值**：值不在字典选项内则整行不入库，作为失败行报出并列出可选值
+（例如 `category=“不存在的类别” 不在可选值内（可选：原材料/设备/办公/服务/其他）`），
+避免出现主数据里的脏枚举值。
+
+**关联字段同样校验**：导入前一次性预加载目标主数据的主键集合，指向不存在（或已删除）记录的
+行不入库并报出（例如 `dept_id=999999 在「部门信息」中不存在`）。
+
 ```bash
 curl -o tpl.xlsx "http://127.0.0.1:8000/api/mdm/entities/3/template/"        # 下载模板
 curl -o out.xlsx "http://127.0.0.1:8000/api/mdm/entities/3/export/?keyword=S10"  # 导出
@@ -325,7 +333,7 @@ curl -X POST "http://127.0.0.1:8000/api/mdm/entities/3/import/" -F "file=@tpl.xl
 - **加字段关联**：字段类型选「关联主数据」，页面表单自动变成下拉，列表显示关联对象的名称
 - **加数据范围**：权限管理 → 数据范围 + SQL 节点 scope_key，实现「销售只能看自己的客户」
 
-## 十三、示例模块：员工报销管理
+## 十三、示例模块
 
 一条命令搭出完整链路（建表 + 4 个存储过程 + 4 个编排 + 2 个页面）：
 
@@ -361,6 +369,36 @@ curl -X POST http://127.0.0.1:8000/api/x/expense-summary -H 'Content-Type: appli
 ```
 
 照这个套路换自己的表与存储过程，就是一个新模块。
+
+
+### 采购入库（多主数据联动）
+
+演示「业务动作串起多类主数据」：供应商 + 原材料 + 仓库 → 入库过账 → 库存台账。
+
+```bash
+cd backend && python manage.py init_purchase_demo
+```
+
+| 层 | 内容 |
+| --- | --- |
+| 新增主数据 | `warehouse` 仓库（走 MDM 生成器：表 + CRUD + 页面）、`inventory` 库存台账（物料+仓库，code=`物料编码-仓库编码` 唯一） |
+| 业务表 | `mdm_inbound` 入库单 |
+| 存储过程 | `sp_inbound_apply` 入库过账（**单事务**：校验主数据有效 → 写入库单 → upsert 库存 → 写字段级审计）、`sp_inbound_list` 联表查询 |
+| 编排 | `purchase-inbound`（SQL 校验供应商 → 分支：可用则过账 / 不可用则拒绝并给出原因）、`purchase-inbound-list` |
+| 页面 | `/p/purchase-inbound-form`（供应商/物料/仓库下拉填单）、`/p/purchase-inbound-list` |
+
+```bash
+# 入库过账：100 吨 @5.2（供应商2 / 物料1 / 仓库1）
+curl -X POST http://127.0.0.1:8000/api/x/purchase-inbound -H 'Content-Type: application/json' \
+  -d '{"supplier_id":2,"material_id":1,"warehouse_id":1,"qty":100,"price":5.2,"operator":"admin"}'
+# 再入 50 吨 -> 库存累加到 150（100+50），金额累加到 795
+# 无效主数据 -> 编排拒绝 {"ok":false,"message":"..."}；绕过编排直接调存储过程则抛错回滚
+# 审计：inventory.qty 100->150、amount 520->795，以及入库单字段，都有记录
+```
+
+要点：**事务边界放在存储过程里**（PG 函数内即单事务，异常自动回滚），
+编排只做「读校验 + 分支决策」，业务一致性由数据库保证。
+
 
 ## 十四、看板与报表
 
