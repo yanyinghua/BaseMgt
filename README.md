@@ -229,7 +229,7 @@ python manage.py shell -c "exec(open('scripts/iam_selftest.py').read())"      # 
 python manage.py shell -c "exec(open('scripts/async_selftest.py').read())"    # 入队/取消/超时/接口
 ```
 
-## 十三、企业主数据（MDM）
+## 十二、企业主数据（MDM）
 
 底座内置企业通用主数据，**元数据驱动 + 生成真实物理表**（不是通用宽表），
 所以历史/新写的存储过程、报表、JOIN 都能直接作用在这些表上。
@@ -325,7 +325,7 @@ curl -X POST "http://127.0.0.1:8000/api/mdm/entities/3/import/" -F "file=@tpl.xl
 - **加字段关联**：字段类型选「关联主数据」，页面表单自动变成下拉，列表显示关联对象的名称
 - **加数据范围**：权限管理 → 数据范围 + SQL 节点 scope_key，实现「销售只能看自己的客户」
 
-## 十四、示例模块：员工报销管理
+## 十三、示例模块：员工报销管理
 
 一条命令搭出完整链路（建表 + 4 个存储过程 + 4 个编排 + 2 个页面）：
 
@@ -362,9 +362,41 @@ curl -X POST http://127.0.0.1:8000/api/x/expense-summary -H 'Content-Type: appli
 
 照这个套路换自己的表与存储过程，就是一个新模块。
 
-## 十五、当前边界
+## 十四、当前边界
 
 - 并行分支按"顺序执行各分支、汇聚节点由主流程执行"处理，未做真正并发与事务边界
 - 异步 worker 为内置线程实现（无外部依赖）；规模更大时可替换为 Celery/RQ，只需替换 `run_worker` 的执行入口
 - 页面渲染器目前支持列表（查询表单 + 表格）与表单（字段 + 提交），尚未支持看板与复杂控件
 - 未做运行历史的清理策略与审计日志归档
+
+## 十五、分支与 PR 流程
+
+仓库：<https://github.com/yanyinghua/BaseMgt>
+
+| 分支 | 用途 | 谁往里合 |
+| --- | --- | --- |
+| `main` | 稳定版，可运行、已验证 | 只从 `develop` 合入 |
+| `develop` | 集成分支，日常开发往这里合 | 各 `feat/*` 特性分支 |
+| `feat/<主题>` | 单个特性/修复 | 开发完成后 PR 到 `develop` |
+| `fix/<主题>` | 紧急修复 | PR 到 `develop`（紧急时可直接到 `main`） |
+
+日常流程：
+
+```bash
+git checkout develop && git pull
+git checkout -b feat/xxx
+# ... 改动 + 自测 ...
+git add -A && git commit -m "feat: xxx"
+git push -u origin feat/xxx
+# 创建 PR：base=develop
+```
+
+自测通过后（`backend/scripts/` 下三个 selftest）再合入；`develop` 跑通一轮端到端验证后，
+再开 PR 从 `develop` → `main`。
+
+PR 创建方式（本机 `gh` 的 token 已失效，任选其一）：
+- 网页：<https://github.com/yanyinghua/BaseMgt/compare/develop> 选 compare 分支后点 Create pull request
+- 命令行：先 `gh auth refresh -h github.com`，再 `gh pr create --base develop --fill`
+
+分支保护建议在 GitHub → Settings → Branches 里给 `main` 加上「需经 PR 合入」，
+`develop` 可按需设置（当前凭据下无法用 API 代劳）。
