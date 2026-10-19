@@ -227,6 +227,7 @@ cd backend
 python manage.py shell -c "exec(open('scripts/engine_selftest.py').read())"   # 循环/分支/人工任务/子流程
 python manage.py shell -c "exec(open('scripts/iam_selftest.py').read())"      # 授权/继承/过滤/行级/鉴权
 python manage.py shell -c "exec(open('scripts/async_selftest.py').read())"    # 入队/取消/超时/接口
+python manage.py shell -c "exec(open('scripts/mdm_import_selftest.py').read())"  # Excel 导入：枚举校验 + 按编码 upsert
 ```
 
 ## 十二、企业主数据（MDM）
@@ -297,6 +298,10 @@ curl http://127.0.0.1:8000/api/mdm/entities/2/changes/?record_id=9
 
 **Excel 导入导出**：表头支持中文名或列名；导入按 **编码** 定位已有记录（有则更新、无则新增），
 逐行调用保存存储过程并返回成功/失败明细。
+
+导入时会**按字典校验枚举值**：值不在字典选项内则整行不入库，作为失败行报出并列出可选值
+（例如 `category=“不存在的类别” 不在可选值内（可选：原材料/设备/办公/服务/其他）`），
+避免出现主数据里的脏枚举值。
 
 ```bash
 curl -o tpl.xlsx "http://127.0.0.1:8000/api/mdm/entities/3/template/"        # 下载模板

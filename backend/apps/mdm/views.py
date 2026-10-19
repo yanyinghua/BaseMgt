@@ -298,12 +298,37 @@ class EntityDefinitionViewSet(PermModelViewSet):
                 mapping[index] = field
 
         fields = editable_fields(entity)
+        # 枚举/字典字段的合法值，用于导入时校验（空值不校验，交由默认值处理）
+        enum_allowed = {}
+        for field in entity.fields_sorted():
+            if field.data_type != "enum":
+                continue
+            options = [o["value"] for o in generators.enum_options(field)]
+            if options:
+                enum_allowed[field.name] = options
+
         result = {"total": 0, "success": 0, "failed": []}
         for row_index, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             if row is None or all(v in (None, "") for v in row):
                 continue
             result["total"] += 1
             values = {field.name: row[index] for index, field in mapping.items() if index < len(row)}
+
+            # 枚举/字典校验：非法值不入库，作为失败行报出
+            errors = []
+            for name, allowed in enum_allowed.items():
+                value = values.get(name)
+                if value in (None, ""):
+                    continue
+                if not any(str(a) == str(value) for a in allowed):
+                    errors.append(
+                        f"{name}=“{value}” 不在可选值内（可选：{'/'.join(str(a) for a in allowed)}）"
+                    )
+            if errors:
+                result["failed"].append({
+                    "row": row_index, "error": "；".join(errors), "code": values.get("code", "")
+                })
+                continue
             p_id = values.get("id") or None
             # 没有 id 时按编码定位已有记录，实现"按编码更新"，避免撞唯一约束
             if not p_id and values.get("code") and has_field(entity, "code"):
