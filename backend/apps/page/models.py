@@ -11,7 +11,12 @@ from apps.catalog.models import Module
 
 
 class PageDefinition(TimeStampedModel):
-    PAGE_TYPES = [("list", "列表页"), ("form", "表单页"), ("dashboard", "看板")]
+    PAGE_TYPES = [
+        ("list", "列表页"),
+        ("form", "表单页"),
+        ("dashboard", "看板"),
+        ("report", "报表页"),
+    ]
 
     module = models.ForeignKey(
         Module, verbose_name="所属模块", null=True, blank=True, on_delete=models.SET_NULL, related_name="pages"

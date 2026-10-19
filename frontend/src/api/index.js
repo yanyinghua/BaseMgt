@@ -109,6 +109,7 @@ export const api = {
 
   // 页面
   pageData: (id, data) => http.post(`/pages/${id}/data/`, data),
+  pageExportUrl: (id, params = {}) => `/api/pages/${id}/export/${qs(params)}`,
 
   // 主数据
   mdmPreview: (id) => http.get(`/mdm/entities/${id}/preview/`),

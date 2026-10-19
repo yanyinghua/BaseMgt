@@ -34,6 +34,7 @@
               <el-option label="列表页" value="list" />
               <el-option label="表单页" value="form" />
               <el-option label="看板" value="dashboard" />
+              <el-option label="报表" value="report" />
             </el-select>
           </el-form-item>
           <el-form-item label="所属模块">

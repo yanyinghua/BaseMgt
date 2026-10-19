@@ -362,14 +362,46 @@ curl -X POST http://127.0.0.1:8000/api/x/expense-summary -H 'Content-Type: appli
 
 照这个套路换自己的表与存储过程，就是一个新模块。
 
-## 十四、当前边界
+## 十四、看板与报表
+
+页面渲染器除了列表页、表单页，还支持 **看板（dashboard）** 与 **报表（report）**。
+它们**不需要新增后端接口**：页面 schema 里声明「取哪个编排的数据 + 怎么聚合」，
+前端取回 rows 后本地算出 KPI 卡片与图表，改指标只改 schema。
+
+```bash
+cd backend && python manage.py init_dashboard_demo   # 生成 3 个示例页面
+```
+
+| 页面 | 类型 | 内容 |
+| --- | --- | --- |
+| `/p/mdm-overview` | 看板 | 人员/部门/供应商/客户/产品/原材料/资产数量 + 资产原值，资产类别饼图、供应商类别柱状图、在职状态饼图 |
+| `/p/inventory-report` | 报表 | 库存明细表 + 物料种类/总数量/总金额卡片 + 各物料金额柱状图 + 导出 |
+| `/p/expense-report` | 报表 | 按状态+类别汇总金额（来自 `sp_expense_summary`）+ 图表 + 导出 |
+
+schema 约定：
+
+```jsonc
+{
+  "cards":  [{"title":"资产原值","bind":"asset-list","metric":"sum","field":"buy_amount","unit":"元","link":"/p/asset-list"}],
+  "charts": [{"title":"资产类别分布","type":"pie","bind":"asset-list","labelField":"category","valueField":"buy_amount","agg":"sum"}],
+  "fields": [{"name":"amount","label":"金额","type":"number","show":true}]   // report 的表格列
+}
+```
+
+- `metric`：`count` / `sum` / `avg` / `max` / `min`
+- 图表 `type`：`pie` / `bar` / `line`；`agg`：`sum` / `count`
+- 卡片/图表不写 `bind` 时，用报表自身的 rows（报表场景常见）
+- 图表基于 [ECharts](https://echarts.apache.org/) 渲染
+- 报表导出：`GET /api/pages/{id}/export/`（跑一遍绑定的编排，输出带中文表头的 Excel）
+
+## 十五、当前边界
 
 - 并行分支按"顺序执行各分支、汇聚节点由主流程执行"处理，未做真正并发与事务边界
 - 异步 worker 为内置线程实现（无外部依赖）；规模更大时可替换为 Celery/RQ，只需替换 `run_worker` 的执行入口
-- 页面渲染器目前支持列表（查询表单 + 表格）与表单（字段 + 提交），尚未支持看板与复杂控件
+- 页面渲染器支持列表、表单、看板、报表四种；复杂控件（级联、主从表、看板联动下钻）尚未支持
 - 未做运行历史的清理策略与审计日志归档
 
-## 十五、分支与 PR 流程
+## 十六、分支与 PR 流程
 
 仓库：<https://github.com/yanyinghua/BaseMgt>
 

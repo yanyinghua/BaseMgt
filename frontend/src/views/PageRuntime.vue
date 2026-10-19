@@ -109,6 +109,58 @@
           />
         </template>
 
+        <!-- 看板 / 报表：KPI 卡片 + 图表 +（报表）明细表 -->
+        <template v-else-if="isDashboard || isReport">
+          <el-row v-if="cards.length" :gutter="12">
+            <el-col v-for="c in cards" :key="c.title" :span="6">
+              <el-card shadow="never" style="margin-bottom: 12px">
+                <div class="bm-muted">{{ c.title }}</div>
+                <div style="font-size: 22px; font-weight: 700">
+                  {{ cardValue(c)
+                  }}<span v-if="c.unit" class="bm-muted" style="font-size: 12px; margin-left: 4px">{{ c.unit }}</span>
+                </div>
+                <router-link v-if="c.link" :to="c.link" class="bm-muted" style="font-size: 12px">
+                  查看明细 →
+                </router-link>
+              </el-card>
+            </el-col>
+          </el-row>
+
+          <el-row v-if="charts.length" :gutter="12">
+            <el-col v-for="ch in charts" :key="ch.title" :span="12">
+              <el-card shadow="never" style="margin-bottom: 12px">
+                <div style="font-weight: 600; margin-bottom: 8px">{{ ch.title }}</div>
+                <ChartView :type="ch.type" :data="chartData(ch)" />
+              </el-card>
+            </el-col>
+          </el-row>
+
+          <template v-if="isReport">
+            <el-form v-if="queryFields.length" :inline="true" size="small">
+              <el-form-item v-for="f in queryFields" :key="f.name" :label="f.label">
+                <el-input v-model="query[f.name]" />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" size="small" @click="loadData">查询</el-button>
+              </el-form-item>
+            </el-form>
+            <div class="bm-toolbar">
+              <el-button type="primary" size="small" @click="exportReport">导出 Excel</el-button>
+              <span class="bm-muted">共 {{ total }} 条</span>
+            </div>
+            <el-table :data="rows" size="small" v-loading="loading">
+              <el-table-column
+                v-for="c in showFields"
+                :key="c.name"
+                :prop="c.name"
+                :label="c.label"
+                show-overflow-tooltip
+              />
+              <template #empty><span class="bm-muted">{{ error || '暂无数据' }}</span></template>
+            </el-table>
+          </template>
+        </template>
+
         <el-empty v-else-if="!page" description="页面不存在或未发布" />
       </div>
     </div>
@@ -119,6 +171,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import Layout from '../layout/Layout.vue'
+import ChartView from '../components/ChartView.vue'
 import { api, pages } from '../api'
 
 const route = useRoute()
@@ -144,6 +197,63 @@ const showFields = computed(() => {
   return visible.length ? visible : allFields.value
 })
 const isTreePage = computed(() => !!(page.value?.schema || {}).tree)
+
+// ---- 看板 / 报表 ----
+const schema = computed(() => page.value?.schema || {})
+const cards = computed(() => schema.value.cards || [])
+const charts = computed(() => schema.value.charts || [])
+const isDashboard = computed(() => page.value?.page_type === 'dashboard')
+const isReport = computed(() => page.value?.page_type === 'report')
+const bindRows = ref({})
+
+const loadBindRows = async () => {
+  const keys = new Set()
+  cards.value.forEach((c) => c.bind && keys.add(c.bind))
+  charts.value.forEach((c) => c.bind && keys.add(c.bind))
+  for (const key of keys) {
+    if (bindRows.value[key]) continue
+    try {
+      const res = await api.openTrigger(key, { limit: 500, offset: 0 })
+      bindRows.value[key] = (res.output || {}).rows || []
+    } catch {
+      bindRows.value[key] = []
+    }
+  }
+}
+
+const aggregate = (list, card) => {
+  const metric = card.metric || 'count'
+  if (metric === 'count') return list.length
+  const values = list.map((r) => Number(r[card.field]) || 0)
+  if (!values.length) return 0
+  if (metric === 'sum') return values.reduce((a, b) => a + b, 0)
+  if (metric === 'avg') return values.reduce((a, b) => a + b, 0) / values.length
+  if (metric === 'max') return Math.max(...values)
+  if (metric === 'min') return Math.min(...values)
+  return 0
+}
+
+const rowsOf = (item) => (item.bind ? (bindRows.value[item.bind] || []) : rows.value)
+
+const cardValue = (card) => {
+  const value = aggregate(rowsOf(card), card)
+  return Number.isInteger(value) ? value : Math.round(value * 100) / 100
+}
+
+const chartData = (chart) => {
+  const agg = chart.agg || 'sum'
+  const map = new Map()
+  rowsOf(chart).forEach((r) => {
+    const name = String(r[chart.labelField] ?? '未分类')
+    const add = agg === 'count' ? 1 : Number(r[chart.valueField]) || 0
+    map.set(name, (map.get(name) || 0) + add)
+  })
+  return [...map.entries()].map(([name, value]) => ({ name, value }))
+}
+
+const exportReport = () => {
+  window.open(api.pageExportUrl(page.value.id, query.value), '_blank')
+}
 
 const normalize = (options) =>
   (options || []).map((o) => (o && typeof o === 'object' ? o : { value: o, label: o }))
@@ -210,6 +320,10 @@ const load = async () => {
   if (page.value) {
     await loadRefOptions()
     if (page.value.page_type === 'list') await loadData()
+    if (isDashboard.value || isReport.value) {
+      await loadBindRows()
+      if (isReport.value) await loadData()
+    }
   }
 }
 
