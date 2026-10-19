@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Node
+node_modules/
+dist/
+.vite/
+*.local
+
+# 本地配置与密钥（.env.example 需要入库）
+.env
+
+# 日志与临时文件
+*.log
+logs/
+/tmp/
+
+# 数据库与备份
+*.dump
+*.sqlite3
+pgdata/
+
+# 编辑器/系统
+.idea/
+.vscode/
+.DS_Store
+*.swp

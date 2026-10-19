@@ -1,0 +1,22 @@
+# 仅提供依赖服务（数据库）。应用本身用 scripts/dev.sh 启动，便于开发调试。
+version: "3.8"
+services:
+  db:
+    image: postgres:14
+    container_name: basemgt-db
+    environment:
+      POSTGRES_USER: basemgt
+      POSTGRES_PASSWORD: basemgt
+      POSTGRES_DB: basemgt
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U basemgt"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

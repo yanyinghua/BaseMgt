@@ -1,0 +1,52 @@
+:root {
+  --bm-border: #e4e7ed;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  background: #f5f7fa;
+  color: #303133;
+}
+
+.bm-page {
+  padding: 16px;
+}
+
+.bm-card {
+  background: #fff;
+  border: 1px solid var(--bm-border);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.bm-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.bm-mono {
+  font-family: Menlo, Consolas, "Courier New", monospace;
+  font-size: 12px;
+}
+
+.bm-muted {
+  color: #909399;
+}
+
+.bm-full {
+  height: 100%;
+}
