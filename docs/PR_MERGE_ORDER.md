@@ -1,16 +1,20 @@
 # PR 合并顺序与冲突处理
 
 针对当前待合并的特性分支，说明**先合谁、为什么、冲突在哪、怎么解、合完怎么验证**。
+
+> 状态（2026-10-19）：
+> ① `docs/pr-merge-order`、**② `feat/purchase-inbound`**、**③ `feat/dashboard-report` 均已合入 `develop`**；
+> ④ `develop → main` 发版已执行。下文保留完整流程，供后续多分支协作参考。
 流程背景见 README「分支与 PR 流程」（`main` 稳定 / `develop` 集成 / `feat/*` 特性）。
 
 ## 1. 当前分支与 PR
 
 | 顺序 | 分支 | HEAD | 内容 | 依赖 |
 | --- | --- | --- | --- | --- |
-| ① | `docs/pr-merge-order` | 本文档 | 合并顺序与冲突说明 | 无 |
-| ② | `feat/purchase-inbound` | `d6a4fe1` | 采购入库示例（多主数据联动、事务边界、审计）+ Excel 导入的枚举校验与关联校验 | 无 |
-| ③ | `feat/dashboard-report` | `13a8913` | 页面渲染器新增看板(dashboard)与报表(report) + 报表导出 + 3 个示例页面 | 依赖 ②（见下） |
-| ④ | `develop` → `main` | — | 发版 | ②③ 合完且验证通过 |
+| ① | `docs/pr-merge-order` | 本文档 | 合并顺序与冲突说明 | 无 | ✅ 已合 |
+| ② | `feat/purchase-inbound` | `d6a4fe1` | 采购入库示例（多主数据联动、事务边界、审计）+ Excel 导入的枚举校验与关联校验 | 无 | ✅ 已合 |
+| ③ | `feat/dashboard-report` | `d5e2864` | 页面渲染器新增看板(dashboard)与报表(report) + 报表导出 + 3 个示例页面 | 依赖 ②（见下） | ✅ 已合 |
+| ④ | `develop` → `main` | — | 发版 | ②③ 合完且验证通过 | ✅ 已发 |
 
 ### 为什么 ② 必须在 ③ 之前
 
@@ -84,7 +88,16 @@ git push
 十六、分支与 PR 流程
 ```
 
-## 4. 合并后验证（在 `develop` 上）
+## 4. 合并后验证（在 `develop` 上）—— 2026-10-19 已执行，结果：
+
+```
+迁移      page.0002（page_type 新增 report）已应用；check 无问题
+示例数据  seed_demo / init_master_data(12 字典) / init_expense_demo /
+          init_purchase_demo / init_dashboard_demo 全部成功
+自测      engine ✅  iam ✅  async ✅  mdm_import ✅
+前端      vite build 通过
+冒烟      入库过账 ok；看板取数正常；库存/报销报表导出正常
+```
 
 ```bash
 cd backend
@@ -120,7 +133,8 @@ curl -o rep.xlsx "http://127.0.0.1:8000/api/pages/<report-page-id>/export/"
 
 ## 5. 发版（④）
 
-`develop` 验证通过后，开 `develop → main` 的 PR：
+`develop` 验证通过后开 `develop → main` 的 PR（本机 `gh` 不可用时，用本地快进合并 + SSH 推送，
+不要 force push）：
 
 🔗 https://github.com/yanyinghua/BaseMgt/compare/main...develop
 
