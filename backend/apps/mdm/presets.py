@@ -57,6 +57,7 @@ DICTIONARIES = [
     {"key": "product_category", "name": "产品分类", "items": ["整机", "配件", "耗材", "软件", "服务"]},
     {"key": "material_category", "name": "物料分类", "items": ["钢材", "塑料", "电子件", "包装", "化工", "其他"]},
     {"key": "unit", "name": "计量单位", "items": ["个", "台", "套", "kg", "吨", "米", "平方米", "升", "箱"]},
+    {"key": "warehouse_type", "name": "仓库类型", "items": ["原材料仓", "成品仓", "半成品仓", "辅料仓", "不良品仓"]},
 ]
 
 
@@ -163,6 +164,30 @@ PRESETS = [
             {"name": "dept_id", "label": "使用部门", "type": "ref", "ref": "department", "ref_display": "name"},
             {"name": "custodian", "label": "保管人", "type": "ref", "ref": "employee", "ref_display": "name"},
             {"name": "warranty_date", "label": "保修到期日", "type": "date"},
+        ],
+    ),
+    _spec(
+        "warehouse", "仓库信息", "other", "仓库/库位档案，采购入库与库存台账的基础", "仓库编码", "仓库名称",
+        [
+            {"name": "warehouse_type", "label": "仓库类型", "type": "enum", "length": 32,
+             "dict": "warehouse_type", "queryable": True, "visible": True},
+            {"name": "address", "label": "仓库地址", "type": "char", "length": 200},
+            {"name": "keeper", "label": "负责人", "type": "ref", "ref": "employee", "ref_display": "name"},
+        ],
+    ),
+    _spec(
+        "inventory", "库存台账", "product", "按物料+仓库记录现存数量与金额；code 为「物料编码-仓库编码」唯一",
+        "库存编码", "物料名称",
+        [
+            {"name": "material_id", "label": "物料", "type": "ref", "ref": "material",
+             "ref_display": "name", "nullable": False, "queryable": True, "visible": True, "indexed": True},
+            {"name": "warehouse_id", "label": "仓库", "type": "ref", "ref": "warehouse",
+             "ref_display": "name", "nullable": False, "queryable": True, "visible": True, "indexed": True},
+            {"name": "qty", "label": "现存数量", "type": "decimal", "precision": 18, "scale": 3,
+             "default": "0", "visible": True},
+            {"name": "amount", "label": "现存金额", "type": "decimal", "precision": 18, "scale": 2,
+             "default": "0", "visible": True},
+            {"name": "last_in_at", "label": "最近入库时间", "type": "datetime", "visible": True},
         ],
     ),
 ]
